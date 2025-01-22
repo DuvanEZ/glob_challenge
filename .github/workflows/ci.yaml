@@ -20,7 +20,6 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          install_components: "cloud-run,cloud-build"
 
       - name: Build and Push to GCR
         run: |
