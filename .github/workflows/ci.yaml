@@ -35,3 +35,8 @@ jobs:
               --allow-unauthenticated \
               --add-cloudsql-instances=${{ secrets.INSTANCE_CONNECTION_NAME }} \
               --set-secrets DB_USER=DB_USER:latest,DB_PASSWORD=DB_PASSWORD:latest,DB_NAME=DB_NAME:latest
+              
+      - name: Enable Cloud Build API
+        run: |
+          gcloud services enable cloudbuild.googleapis.com \
+              --project=${{ secrets.GCP_PROJECT_ID }}
