@@ -1,0 +1,6 @@
+fastapi==0.95.2
+uvicorn==0.22.0
+sqlalchemy==1.4.46
+psycopg2-binary==2.9.6
+pandas==1.5.3
+fastavro==1.7.3
