@@ -8,6 +8,7 @@ def create_department(db: Session, department: schemas.DepartmentCreate):
     db.refresh(new_dept)
     return new_dept
 
+#create a job on the db
 def create_job(db: Session, job: schemas.JobCreate):
     new_job = models.Job(**job.dict())
     db.add(new_job)
