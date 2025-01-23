@@ -33,10 +33,11 @@ jobs:
             sqladmin.googleapis.com \
             --project=${{ secrets.GCP_PROJECT_ID }}
 
-      # Step 5: Build and Push Docker Image to GCR
+      # Step 5: Build and Push Docker Image to GCR (Disable log streaming with --no-stream)
       - name: Build and Push to GCR
         run: |
           gcloud builds submit \
+            --no-stream \
             --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.CLOUD_RUN_SERVICE_NAME }}
 
       # Step 6: Deploy to Cloud Run
