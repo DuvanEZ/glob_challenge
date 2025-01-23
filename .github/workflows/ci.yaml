@@ -17,7 +17,8 @@ jobs:
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v0.4.0
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          # Hardcode the project ID
+          project_id: "globproject"
           service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       # Step 3: Configure Docker to use gcloud as a credential helper
@@ -29,8 +30,8 @@ jobs:
       - name: Build and push Docker image
         run: |
           echo "Building the Docker image and pushing it to Artifact Registry..."
-          docker build -t us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api:latest .
-          docker push us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api:latest
+          docker build -t us-east1-docker.pkg.dev/globproject/my-app-repository/api:latest .
+          docker push us-east1-docker.pkg.dev/globproject/my-app-repository/api:latest
 
   deploy:
     needs: build
@@ -40,7 +41,8 @@ jobs:
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v0.4.0
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          # Hardcode the project ID again
+          project_id: "globproject"
           service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       # Step 2: Install beta components (for "gcloud beta run deploy")
@@ -53,12 +55,12 @@ jobs:
         run: |
           echo "Deploying to Cloud Run..."
           gcloud beta run deploy my-app \
-            --image=us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api:latest \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --image=us-east1-docker.pkg.dev/globproject/my-app-repository/api:latest \
+            --project=globproject \
             --allow-unauthenticated \
             --ingress=all \
             --port=8080 \
-            --service-account=sa-deployment@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --service-account=sa-deployment@globproject.iam.gserviceaccount.com \
             --min-instances=1 \
             --timeout=900s \
             --platform=managed \
