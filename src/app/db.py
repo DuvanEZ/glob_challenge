@@ -1,49 +1,56 @@
 import os
 import logging
-from google.cloud.sql.connector import Connector, IPTypes
-import psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Configuración
-DATABASE_NAME = os.getenv("DB_NAME", "default_database_test")
-INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME", "project:region:instance")
+# Database configuration
+DB_HOST = os.getenv("DB_HOST", "34.136.217.207")  # Public IP of your Cloud SQL instance
+DB_PORT = os.getenv("DB_PORT", "5432")  # Default PostgreSQL port
+DB_NAME = os.getenv("DB_NAME", "default_database_test")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
-IP_TYPE = IPTypes.PUBLIC  # Cambiar a IPTypes.PRIVATE si usas IP privada
 
-# Inicializa el conector
-connector = Connector(ip_type=IP_TYPE)
+# Logging configuration
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 def get_connection():
     """
-    Retorna una conexión de psycopg2 a PostgreSQL usando Cloud SQL Auth Proxy.
+    Returns a psycopg2 connection to PostgreSQL using the public IP of the database.
     """
     try:
-        conn = connector.connect(
-            INSTANCE_CONNECTION_NAME,
-            "psycopg2",
+        import psycopg2
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            dbname=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD,
-            db=DATABASE_NAME
         )
-        logging.info("Conexión a la base de datos PostgreSQL establecida.")
+        logging.info("Connection to PostgreSQL database established.")
         return conn
     except Exception as e:
-        logging.error("Error al conectar a la base de datos: %s", e)
+        logging.error("Error connecting to the PostgreSQL database: %s", e)
         raise
 
-# SQLAlchemy setup
+
 def get_sqlalchemy_engine():
     """
-    Crea un motor de SQLAlchemy con el conector de Google Cloud SQL.
+    Creates and returns a SQLAlchemy engine using the public IP of the database.
     """
-    engine = create_engine(
-        f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@/{DATABASE_NAME}?host=/cloudsql/{INSTANCE_CONNECTION_NAME}"
-    )
-    return engine
+    try:
+        engine = create_engine(
+            f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        )
+        logging.info("SQLAlchemy engine created.")
+        return engine
+    except Exception as e:
+        logging.error("Error creating SQLAlchemy engine: %s", e)
+        raise
 
+
+# Initialize SQLAlchemy components
 engine = get_sqlalchemy_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
