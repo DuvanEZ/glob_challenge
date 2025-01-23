@@ -21,7 +21,7 @@ jobs:
           service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       # Step 3: Configure Docker to use gcloud as a credential helper
-      - name: Configure Docker to use the gcloud command-line tool as a credential helper
+      - name: Configure Docker to use gcloud as a credential helper
         run: |
           gcloud auth configure-docker us-east1-docker.pkg.dev
 
@@ -29,8 +29,8 @@ jobs:
       - name: Build and push Docker image
         run: |
           echo "Building the Docker image and pushing it to Artifact Registry..."
-          docker build -t us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api .
-          docker push us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api
+          docker build -t us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api:latest .
+          docker push us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api:latest
 
   deploy:
     needs: build
@@ -43,7 +43,7 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-      # Step 2: Install beta components 
+      # Step 2: Install beta components (for "gcloud beta run deploy")
       - name: Install gcloud beta components
         run: |
           gcloud components install beta --quiet

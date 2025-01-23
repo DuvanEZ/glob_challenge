@@ -1,8 +1,10 @@
+import os
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from .db import Base, engine, SessionLocal
 from . import models, schemas, crud, utils, backup
 from .routers import metrics
+import uvicorn
 
 Base.metadata.create_all(bind=engine)
 
@@ -49,3 +51,7 @@ def restore_data(table_name: str):
     return {"message": result}
 
 app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run("src.app.main:app", host="0.0.0.0", port=port)
