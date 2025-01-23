@@ -12,7 +12,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Globant Big Data Migration")
+app = FastAPI(
+    title="Globant Big Data Migration",
+    description="API for data migration, backup, and restoration.",
+    version="1.0.0"
+)
 
 # Dependency to get the database session
 def get_db():
@@ -22,7 +26,17 @@ def get_db():
     finally:
         db.close()
 
-# Health check on startup to verify the database connection
+# Validate environment variables
+@app.on_event("startup")
+async def validate_env_variables():
+    required_envs = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"]
+    missing_envs = [var for var in required_envs if not os.getenv(var)]
+    if missing_envs:
+        logging.error(f"Missing required environment variables: {missing_envs}")
+        raise RuntimeError(f"Missing required environment variables: {missing_envs}")
+    logging.info("All required environment variables are set.")
+
+# Startup health check
 @app.on_event("startup")
 async def startup_event():
     try:
@@ -32,41 +46,21 @@ async def startup_event():
         logging.error("Database connection failed: %s", e)
         raise
 
+# Shutdown hook
+@app.on_event("shutdown")
+async def shutdown_event():
+    logging.info("Application is shutting down.")
+
 # Routes for loading CSV data
 @app.post("/load_csv/")
 def load_csv_data(employees_file: str = None, departments_file: str = None, jobs_file: str = None, db: Session = Depends(get_db)):
+    logging.info("Load CSV request received.")
     if departments_file:
+        logging.info(f"Loading departments from {departments_file}.")
         utils.load_csv_departments(departments_file, db)
     if jobs_file:
+        logging.info(f"Loading jobs from {jobs_file}.")
         utils.load_csv_jobs(jobs_file, db)
     if employees_file:
-        utils.load_csv_employees(employees_file, db)
-    return {"status": "CSV data loaded successfully"}
-
-# Routes for inserting data
-@app.post("/insert_data/")
-def insert_data(employees: list[schemas.EmployeeCreate] = None, departments: list[schemas.DepartmentCreate] = None, jobs: list[schemas.JobCreate] = None, db: Session = Depends(get_db)):
-    if departments:
-        for dept in departments:
-            crud.create_department(db, dept)
-    if jobs:
-        for job in jobs:
-            crud.create_job(db, job)
-    if employees:
-        for emp in employees:
-            crud.create_employee(db, emp)
-    return {"status": "Data inserted successfully"}
-
-# Backup and restore routes
-@app.post("/backup/{table_name}")
-def backup_data(table_name: str):
-    result = backup.backup_table(table_name)
-    return {"message": result}
-
-@app.post("/restore/{table_name}")
-def restore_data(table_name: str):
-    result = backup.restore_table(table_name)
-    return {"message": result}
-
-# Metrics router
-app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
+        logging.info(f"Loading employees from {employees_file}.")
+        utils.loa
