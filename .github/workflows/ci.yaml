@@ -33,12 +33,21 @@ jobs:
             sqladmin.googleapis.com \
             --project=${{ secrets.GCP_PROJECT_ID }}
 
-      # Step 5: Build and Push Docker Image to GCR (Disable log streaming with --no-stream)
+      # Step 5: Build and Push Docker Image to GCR (async + wait)
       - name: Build and Push to GCR
         run: |
-          gcloud builds submit \
-            --no-stream \
-            --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.CLOUD_RUN_SERVICE_NAME }}
+          # 1. Submit the build asynchronously.
+          #    This avoids streaming logs (which can fail under certain security constraints).
+          BUILD_ID=$(gcloud builds submit \
+            --async \
+            --format='value(id)' \
+            --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.CLOUD_RUN_SERVICE_NAME }})
+
+          echo "Cloud Build submitted with ID: $BUILD_ID"
+
+          # 2. Wait for the build to complete.
+          #    If the build fails, this command returns a non-zero exit code, failing the workflow.
+          gcloud builds wait "$BUILD_ID"
 
       # Step 6: Deploy to Cloud Run
       - name: Deploy to Cloud Run
