@@ -1,63 +1,66 @@
-name: CI/CD Pipeline
+name: Deploy to GCP (Cloud Run)
 
 on:
   push:
-    branches: ["master"]
+    branches:
+      - main
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      # Step 1: Check out the code
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-
-      - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@v1
+      # Step 2: Set up Google Cloud SDK 
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v0.4.0
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          # Try to install the latest version of gcloud
-          version: 'latest'
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-      # Extra step: forcibly update gcloud, just to be sure
-      - name: Update gcloud to newest version
+      # Step 3: Configure Docker to use gcloud as a credential helper
+      - name: Configure Docker to use the gcloud command-line tool as a credential helper
         run: |
-          gcloud components update --quiet
-          gcloud version
+          gcloud auth configure-docker us-east1-docker.pkg.dev
 
-      - name: Enable Required APIs
+      # Step 4: Build and push Docker image to Artifact Registry
+      - name: Build and push Docker image
         run: |
-          gcloud services enable \
-            cloudbuild.googleapis.com \
-            run.googleapis.com \
-            sqladmin.googleapis.com \
-            --project=${{ secrets.GCP_PROJECT_ID }}
+          echo "Building the Docker image and pushing it to Artifact Registry..."
+          docker build -t us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api .
+          docker push us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api
 
-      - name: Build and Push to GCR (async + wait)
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Set up Google Cloud SDK again in this job
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v0.4.0
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      # Step 2: Install beta components 
+      - name: Install gcloud beta components
         run: |
-          # Submit the build asynchronously
-          BUILD_ID=$(gcloud builds submit \
-            --async \
-            --format='value(id)' \
-            --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.CLOUD_RUN_SERVICE_NAME }} \
-            --project=${{ secrets.GCP_PROJECT_ID }})
+          gcloud components install beta --quiet
 
-          echo "Cloud Build submitted with ID: $BUILD_ID"
-
-          # Wait for the build to complete (requires >=346.0.0)
-          gcloud builds wait "$BUILD_ID" --project=${{ secrets.GCP_PROJECT_ID }}
-
+      # Step 3: Deploy to Cloud Run
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE_NAME }} \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.CLOUD_RUN_SERVICE_NAME }} \
-            --platform managed \
-            --region ${{ secrets.REGION }} \
+          echo "Deploying to Cloud Run..."
+          gcloud beta run deploy my-app \
+            --image=us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-app-repository/api:latest \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
             --allow-unauthenticated \
-            --add-cloudsql-instances=${{ secrets.INSTANCE_CONNECTION_NAME }} \
-            --set-secrets DB_USER=DB_USER:latest,DB_PASSWORD=DB_PASSWORD:latest,DB_NAME=DB_NAME:latest \
-            --project=${{ secrets.GCP_PROJECT_ID }}
+            --ingress=all \
+            --port=8080 \
+            --service-account=sa-deployment@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --min-instances=1 \
+            --timeout=900s \
+            --platform=managed \
+            --region=us-east1 \
+            --quiet
