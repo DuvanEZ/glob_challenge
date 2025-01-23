@@ -8,24 +8,27 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout
         uses: actions/checkout@v3
 
-      # Step 2: Authenticate to GCP
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-      # Step 3: Setup gcloud CLI (install latest version to get 'gcloud builds wait')
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
+          # Try to install the latest version of gcloud
           version: 'latest'
 
-      # Step 4: Enable required APIs
+      # Extra step: forcibly update gcloud, just to be sure
+      - name: Update gcloud to newest version
+        run: |
+          gcloud components update --quiet
+          gcloud version
+
       - name: Enable Required APIs
         run: |
           gcloud services enable \
@@ -34,9 +37,9 @@ jobs:
             sqladmin.googleapis.com \
             --project=${{ secrets.GCP_PROJECT_ID }}
 
-      # Step 5: Build and Push Docker Image to GCR (async + wait)
-      - name: Build and Push to GCR
+      - name: Build and Push to GCR (async + wait)
         run: |
+          # Submit the build asynchronously
           BUILD_ID=$(gcloud builds submit \
             --async \
             --format='value(id)' \
@@ -45,10 +48,9 @@ jobs:
 
           echo "Cloud Build submitted with ID: $BUILD_ID"
 
-          # Wait for the build to complete (requires newer gcloud)
+          # Wait for the build to complete (requires >=346.0.0)
           gcloud builds wait "$BUILD_ID" --project=${{ secrets.GCP_PROJECT_ID }}
 
-      # Step 6: Deploy to Cloud Run
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE_NAME }} \
